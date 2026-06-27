@@ -1,0 +1,6 @@
+{
+  "name": "Persona Chat AI",
+  "description": "A custom roleplay AI application with Cloud SQL database, Firebase authentication, and chat history management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: #030712; /* Dark slate background */
+    color: #f3f4f6; /* Off-white text */
+    font-family: var(--font-sans);
+  }
+
+  /* Custom scrollbars for chats and sidebar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1f2937;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #374151;
+  }
+}
+
+/* Custom glow effect animations for Sci-Fi/Cyberpunk accents */
+.cyber-glow-indigo {
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
+}
+
+.cyber-glow-emerald {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+}
+
+.text-glow-purple {
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
