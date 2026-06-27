@@ -7,6 +7,13 @@ export interface User {
   joinedDate: string;
 }
 
+export interface UserPersona {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  bio: string;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -31,6 +38,8 @@ export interface Message {
   sender: 'user' | 'bot';
   content: string;
   timestamp: string;
+  image?: string; // support image attach
+  userPersonaId?: string; // associate with a user persona
 }
 
 export interface ChatSession {
@@ -38,4 +47,6 @@ export interface ChatSession {
   lastMessageText: string;
   lastMessageTime: string;
   unreadCount: number;
+  isPinned?: boolean; // pin chats
 }
+

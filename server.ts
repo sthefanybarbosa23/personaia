@@ -312,7 +312,7 @@ async function startServer() {
   app.post('/api/chats/:charId', requireAuth, async (req: AuthRequest, res) => {
     try {
       const { charId } = req.params;
-      const { messageText } = req.body;
+      const { messageText, userPersonaName, userPersonaBio } = req.body;
       const uid = req.user!.uid;
 
       if (!messageText) {
@@ -365,6 +365,9 @@ Description: ${charRec.description}
 Archetype/Category: ${charRec.category}
 Descriptors/Tags: ${charRec.tags || 'none'}
 
+User Persona Context:
+${userPersonaName ? `The user is roleplaying with you as "${userPersonaName}". Backstory/Bio: "${userPersonaBio || 'No biography details provided'}"` : `The user's account username is "${userRec.username}".`}
+
 Here is your relationship status with this user: ${memory.relationshipStatus} (Relationship Score: ${memory.relationshipScore}/100)
 
 Your accumulated dynamic facts and notes about this user:
@@ -379,7 +382,9 @@ ${memory.conversationSummary || "The dialogue has just begun."}
 Here are your core persona guidelines and lore:
 ${charRec.systemPrompt}
 
-Strictly stay in character as ${charRec.name}. Respond naturally using their voice, tone, vocabulary, and style. Never break character, and never write meta explanations. Do not include prefixes like "${charRec.name}:" or similar in your response.`;
+Strictly stay in character as ${charRec.name}. Respond naturally using their voice, tone, vocabulary, and style. Never break character, and never write meta explanations. Do not include prefixes like "${charRec.name}:" or similar in your response. 
+
+IMPORTANT: Your response MUST be written and sent entirely in Portuguese (Português), as the application has been fully translated to Portuguese. Ensure all your dialogue, descriptions, and roleplaying elements are natural, engaging, and in Portuguese.`;
 
       // Call generateContentStream using gemini-3.5-flash
       const stream = await ai.models.generateContentStream({

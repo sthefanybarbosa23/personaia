@@ -3,7 +3,7 @@ import LandingPage from './components/LandingPage.tsx';
 import Auth from './components/Auth.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import Sidebar from './components/Sidebar.tsx';
-import { Character, User } from './types.ts';
+import { Character, User, UserPersona } from './types.ts';
 import { INITIAL_CHARACTERS } from './data.ts';
 
 export default function App() {
@@ -14,6 +14,188 @@ export default function App() {
   const [characters, setCharacters] = useState<Character[]>(INITIAL_CHARACTERS);
   const [activeCharId, setActiveCharId] = useState<string | null>(null);
   const isMountedRef = React.useRef(true);
+
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('ai_roleplay_theme') as 'dark' | 'light') || 'dark';
+  });
+
+  const [favoriteCharIds, setFavoriteCharIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('ai_roleplay_favorite_chars');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [recentCharIds, setRecentCharIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('ai_roleplay_recent_chars');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // User Personas state
+  const [userPersonas, setUserPersonas] = useState<UserPersona[]>(() => {
+    try {
+      const stored = localStorage.getItem('ai_roleplay_user_personas');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    const defaults: UserPersona[] = [
+      {
+        id: 'persona-apprentice',
+        name: 'Mage Apprentice',
+        avatarUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=150&auto=format&fit=crop&q=80',
+        bio: 'An aspiring practitioner of elemental wizardry, eager to discover arcane secrets and historical spells.'
+      },
+      {
+        id: 'persona-hacker',
+        name: 'Neon Cyber Rogue',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        bio: 'A futuristic tech specialist from Neo-Tokyo who operates on the boundary of network code and cybernetic spirit lore.'
+      }
+    ];
+    localStorage.setItem('ai_roleplay_user_personas', JSON.stringify(defaults));
+    return defaults;
+  });
+
+  const [activePersonaId, setActivePersonaId] = useState<string | null>(() => {
+    return localStorage.getItem('ai_roleplay_active_persona_id') || null;
+  });
+
+  const handleSelectPersona = (id: string | null) => {
+    setActivePersonaId(id);
+    if (id) {
+      localStorage.setItem('ai_roleplay_active_persona_id', id);
+    } else {
+      localStorage.removeItem('ai_roleplay_active_persona_id');
+    }
+  };
+
+  const handleCreatePersona = (newPersona: Omit<UserPersona, 'id'>) => {
+    const fresh: UserPersona = {
+      ...newPersona,
+      id: 'persona-' + Math.random().toString(36).substr(2, 9)
+    };
+    setUserPersonas(prev => {
+      const updated = [...prev, fresh];
+      localStorage.setItem('ai_roleplay_user_personas', JSON.stringify(updated));
+      return updated;
+    });
+    setActivePersonaId(fresh.id);
+    localStorage.setItem('ai_roleplay_active_persona_id', fresh.id);
+  };
+
+  // Pinned conversations state
+  const [pinnedCharIds, setPinnedCharIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('ai_roleplay_pinned_chars');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Chat sessions state (last message, timestamp, unread indicators)
+  const [sessions, setSessions] = useState<Record<string, { lastMessageText: string; lastMessageTime: string; unreadCount: number }>>(() => {
+    try {
+      const stored = localStorage.getItem('ai_roleplay_sessions_v2');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+
+    // Set interactive initial unread items to make the sidebar feel alive like WhatsApp!
+    const defaults: Record<string, { lastMessageText: string; lastMessageTime: string; unreadCount: number }> = {
+      'char-nova9': {
+        lastMessageText: 'Diagnostic complete. Core integrity: 94%. Communication bridge established. I am Nova-9...',
+        lastMessageTime: '11:42 AM',
+        unreadCount: 1
+      },
+      'char-kaelen': {
+        lastMessageText: 'Ah, step closer to the hearth, traveler. The winds outside are harsh, and my scrying pool...',
+        lastMessageTime: 'Yesterday',
+        unreadCount: 0
+      },
+      'char-yukiko': {
+        lastMessageText: '*A small glowing fox spirit darts around your feet as she adjusts her high-tech talisman holster*',
+        lastMessageTime: '09:15 AM',
+        unreadCount: 2
+      }
+    };
+    try {
+      localStorage.setItem('ai_roleplay_sessions_v2', JSON.stringify(defaults));
+    } catch {}
+    return defaults;
+  });
+
+  const updateSession = (charId: string, lastMessageText: string, lastMessageTime?: string, incrementUnread = false) => {
+    setSessions(prev => {
+      const current = prev[charId] || { lastMessageText: '', lastMessageTime: '', unreadCount: 0 };
+      const time = lastMessageTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const nextUnread = incrementUnread ? current.unreadCount + 1 : current.unreadCount;
+      const updated = {
+        ...prev,
+        [charId]: {
+          lastMessageText,
+          lastMessageTime: time,
+          unreadCount: nextUnread
+        }
+      };
+      try {
+        localStorage.setItem('ai_roleplay_sessions_v2', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const markSessionRead = (charId: string) => {
+    setSessions(prev => {
+      if (!prev[charId] || prev[charId].unreadCount === 0) return prev;
+      const updated = {
+        ...prev,
+        [charId]: {
+          ...prev[charId],
+          unreadCount: 0
+        }
+      };
+      try {
+        localStorage.setItem('ai_roleplay_sessions_v2', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const togglePinCharacter = (charId: string) => {
+    setPinnedCharIds(prev => {
+      const updated = prev.includes(charId) ? prev.filter(id => id !== charId) : [...prev, charId];
+      localStorage.setItem('ai_roleplay_pinned_chars', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const toggleFavorite = (charId: string) => {
+    setFavoriteCharIds(prev => {
+      const updated = prev.includes(charId) ? prev.filter(id => id !== charId) : [...prev, charId];
+      localStorage.setItem('ai_roleplay_favorite_chars', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const addToRecent = (charId: string) => {
+    setRecentCharIds(prev => {
+      const filtered = prev.filter(id => id !== charId);
+      const updated = [charId, ...filtered].slice(0, 8);
+      localStorage.setItem('ai_roleplay_recent_chars', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('ai_roleplay_theme', nextTheme);
+  };
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -172,12 +354,14 @@ export default function App() {
   // Select character for conversation
   const handleSelectCharacter = (charId: string) => {
     setActiveCharId(charId);
+    addToRecent(charId);
     setView('dashboard');
   };
 
   // Landing page trial click handler
   const handleSelectCharacterTrial = (char: Character) => {
     setActiveCharId(char.id);
+    addToRecent(char.id);
     setView('dashboard');
   };
 
@@ -294,7 +478,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#030712] font-sans antialiased text-gray-100">
+    <div className={`min-h-screen font-sans antialiased transition-colors duration-300 ${
+      theme === 'dark' ? 'dark bg-[#030712] text-gray-100' : 'light bg-slate-50 text-slate-800'
+    }`}>
       {view === 'landing' && (
         <LandingPage
           onStart={() => {
@@ -306,6 +492,11 @@ export default function App() {
             setAuthMode('login');
             setView('auth');
           }}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          favoriteCharIds={favoriteCharIds}
+          toggleFavorite={toggleFavorite}
+          recentCharIds={recentCharIds}
         />
       )}
 
@@ -314,6 +505,7 @@ export default function App() {
           initialMode={authMode}
           onSuccess={handleAuthSuccess}
           onBack={() => setView('landing')}
+          theme={theme}
         />
       )}
 
@@ -323,19 +515,47 @@ export default function App() {
           token={token}
           characters={characters}
           activeCharId={activeCharId || (characters[0] ? characters[0].id : null)}
-          onSelectCharacter={(id) => setActiveCharId(id)}
+          onSelectCharacter={handleSelectCharacter}
           onCreateCharacter={handleCreateCharacter}
           onEditCharacter={handleEditCharacter}
           onDeleteCharacter={handleDeleteCharacter}
           onLogout={handleLogout}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          favoriteCharIds={favoriteCharIds}
+          toggleFavorite={toggleFavorite}
+          recentCharIds={recentCharIds}
+          userPersonas={userPersonas}
+          activePersonaId={activePersonaId}
+          onSelectPersona={handleSelectPersona}
+          onCreatePersona={handleCreatePersona}
+          pinnedCharIds={pinnedCharIds}
+          togglePinCharacter={togglePinCharacter}
+          sessions={sessions}
+          updateSession={updateSession}
+          markSessionRead={markSessionRead}
           sidebarElement={
             <Sidebar
               user={user}
               characters={characters}
               activeCharId={activeCharId || (characters[0] ? characters[0].id : null)}
-              onSelectCharacter={(id) => setActiveCharId(id)}
+              onSelectCharacter={handleSelectCharacter}
               onOpenCreateModal={() => {}} // Hooked up inside Dashboard cloneElement
               onLogout={handleLogout}
+              theme={theme}
+              toggleTheme={toggleTheme}
+              favoriteCharIds={favoriteCharIds}
+              toggleFavorite={toggleFavorite}
+              recentCharIds={recentCharIds}
+              userPersonas={userPersonas}
+              activePersonaId={activePersonaId}
+              onSelectPersona={handleSelectPersona}
+              onCreatePersona={handleCreatePersona}
+              pinnedCharIds={pinnedCharIds}
+              togglePinCharacter={togglePinCharacter}
+              sessions={sessions}
+              updateSession={updateSession}
+              markSessionRead={markSessionRead}
             />
           }
         />

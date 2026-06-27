@@ -9,9 +9,10 @@ interface AuthProps {
   onSuccess: (user: UserType, token: string) => void;
   onBack: () => void;
   initialMode?: 'login' | 'register';
+  theme?: 'dark' | 'light';
 }
 
-export default function Auth({ onSuccess, onBack }: AuthProps) {
+export default function Auth({ onSuccess, onBack, theme }: AuthProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const isMountedRef = React.useRef(true);
@@ -77,7 +78,7 @@ export default function Auth({ onSuccess, onBack }: AuthProps) {
         className="absolute top-6 left-6 flex items-center space-x-2 text-sm text-gray-400 hover:text-white transition-colors py-2 px-3 rounded-lg bg-gray-900/60 border border-gray-800 cursor-pointer"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span>Back to Hub</span>
+        <span>Voltar para o Hub</span>
       </button>
 
       <div className="w-full max-w-md">
@@ -86,10 +87,10 @@ export default function Auth({ onSuccess, onBack }: AuthProps) {
             <Sparkles className="h-6 w-6 text-indigo-100 animate-pulse" />
           </div>
           <h2 className="text-3xl font-display font-bold text-white tracking-tight">
-            Authenticate
+            Autenticar
           </h2>
           <p className="text-sm text-gray-400 mt-2">
-            Sign in to access your custom AI companions and saved chat realms.
+            Entre para acessar seus companheiros de IA personalizados e reinos de conversa salvos.
           </p>
         </div>
 
@@ -136,7 +137,7 @@ export default function Auth({ onSuccess, onBack }: AuthProps) {
                         fill="#EA4335"
                       />
                     </svg>
-                    <span>Continue with Google</span>
+                    <span>Continuar com o Google</span>
                   </>
                 )}
               </button>
