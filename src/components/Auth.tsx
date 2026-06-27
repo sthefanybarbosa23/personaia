@@ -14,6 +14,14 @@ interface AuthProps {
 export default function Auth({ onSuccess, onBack }: AuthProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const isMountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -43,12 +51,18 @@ export default function Auth({ onSuccess, onBack }: AuthProps) {
         throw new Error(data.error || 'Authentication sync failed');
       }
 
-      onSuccess(data.user, token);
+      if (isMountedRef.current) {
+        onSuccess(data.user, token);
+      }
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Something went wrong during sign in.');
+      if (isMountedRef.current) {
+        setError(err.message || 'Something went wrong during sign in.');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

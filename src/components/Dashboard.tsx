@@ -74,18 +74,29 @@ export default function Dashboard({
   const [activeCharMemory, setActiveCharMemory] = useState<any>(null);
 
   const activeChar = characters.find(c => c.id === activeCharId) || characters[0];
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const fetchCharacterMemory = async () => {
-    if (!activeChar) return;
+    if (!activeChar || !token) return;
     try {
       const res = await fetch(`/api/memories/${activeChar.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      if (res.ok) {
+      if (res.status === 401) return;
+      if (res.ok && isMountedRef.current) {
         const memoryData = await res.json();
-        setActiveCharMemory(memoryData);
+        if (isMountedRef.current) {
+          setActiveCharMemory(memoryData);
+        }
       }
     } catch (err) {
       console.error('Failed to load memory:', err);
@@ -94,18 +105,22 @@ export default function Dashboard({
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch messages and memory when character changes
+  // Fetch messages and memory when character changes or token refreshes
   useEffect(() => {
-    if (!activeChar) return;
+    if (!activeChar || !token) return;
+
+    let isMounted = true;
+    const abortController = new AbortController();
 
     const fetchChatHistory = async () => {
       try {
         const res = await fetch(`/api/chats/${activeChar.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
-          }
+          },
+          signal: abortController.signal
         });
-        if (res.ok) {
+        if (res.ok && isMounted) {
           const history = await res.json();
           if (history.length === 0) {
             // Seed initial message if empty
@@ -122,14 +137,21 @@ export default function Dashboard({
             setMessages(history);
           }
         }
-      } catch (err) {
-        console.error('Failed to load chats:', err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Failed to load chats:', err);
+        }
       }
     };
 
     fetchChatHistory();
     fetchCharacterMemory();
-  }, [activeChar?.id]);
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
+  }, [activeChar?.id, token]);
 
   // Scroll to bottom helper
   useEffect(() => {
@@ -138,7 +160,7 @@ export default function Dashboard({
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || loadingReply) return;
+    if (!inputText.trim() || loadingReply || !token) return;
 
     const text = inputText;
     setInputText('');
@@ -166,6 +188,8 @@ export default function Dashboard({
     };
     setMessages(prev => [...prev, tempBotMsg]);
 
+    const abortController = new AbortController();
+
     try {
       const res = await fetch(`/api/chats/${activeChar.id}`, {
         method: 'POST',
@@ -173,8 +197,13 @@ export default function Dashboard({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ messageText: text })
+        body: JSON.stringify({ messageText: text }),
+        signal: abortController.signal
       });
+
+      if (res.status === 401) {
+        throw new Error('Unauthorized');
+      }
 
       if (!res.ok) {
         throw new Error('Could not post message');
@@ -192,42 +221,51 @@ export default function Dashboard({
       while (!done) {
         const { value, done: readerDone } = await reader.read();
         done = readerDone;
-        const chunk = decoder.decode(value, { stream: !done });
-        if (chunk) {
-          accumulatedContent += chunk;
-          setMessages(prev => {
-            const updated = [...prev];
-            const botMsgIdx = updated.findIndex(m => m.id === botMsgId);
-            if (botMsgIdx !== -1) {
-              updated[botMsgIdx] = {
-                ...updated[botMsgIdx],
-                content: accumulatedContent
-              };
+        if (value) {
+          const chunk = decoder.decode(value, { stream: !done });
+          if (chunk) {
+            accumulatedContent += chunk;
+            if (isMountedRef.current) {
+              setMessages(prev => {
+                const updated = [...prev];
+                const botMsgIdx = updated.findIndex(m => m.id === botMsgId);
+                if (botMsgIdx !== -1) {
+                  updated[botMsgIdx] = {
+                    ...updated[botMsgIdx],
+                    content: accumulatedContent
+                  };
+                }
+                return updated;
+              });
             }
-            return updated;
-          });
+          }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') return;
       console.error(err);
-      // Fallback response simulation
-      setMessages(prev => {
-        const updated = [...prev];
-        const botMsgIdx = updated.findIndex(m => m.id === botMsgId);
-        if (botMsgIdx !== -1) {
-          updated[botMsgIdx] = {
-            ...updated[botMsgIdx],
-            content: `*flickers slightly* [Communication Module Latency] I received: "${text}". Let us continue mapping our virtual storyline.`
-          };
-        }
-        return updated;
-      });
+      if (isMountedRef.current) {
+        // Fallback response simulation
+        setMessages(prev => {
+          const updated = [...prev];
+          const botMsgIdx = updated.findIndex(m => m.id === botMsgId);
+          if (botMsgIdx !== -1) {
+            updated[botMsgIdx] = {
+              ...updated[botMsgIdx],
+              content: `*flickers slightly* [Communication Module Latency] I received: "${text}". Let us continue mapping our virtual storyline.`
+            };
+          }
+          return updated;
+        });
+      }
     } finally {
-      setLoadingReply(false);
-      fetchCharacterMemory();
-      setTimeout(() => {
+      if (isMountedRef.current) {
+        setLoadingReply(false);
         fetchCharacterMemory();
-      }, 3000);
+        setTimeout(() => {
+          if (isMountedRef.current) fetchCharacterMemory();
+        }, 3000);
+      }
     }
   };
 
@@ -437,8 +475,8 @@ export default function Dashboard({
                           <div className="relative group shrink-0">
                             <div className="absolute -inset-0.5 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-300 pointer-events-none" />
                             <img
-                              src={activeChar.avatarUrl}
-                              alt={activeChar.name}
+                              src={activeChar?.avatarUrl || ''}
+                              alt={activeChar?.name || 'Bot'}
                               className="relative h-9 w-9 rounded-xl object-cover border border-gray-800/80 shrink-0 shadow-lg"
                               referrerPolicy="no-referrer"
                             />
@@ -482,8 +520,8 @@ export default function Dashboard({
                 >
                   <div className="flex items-start gap-3 max-w-[80%]">
                     <img
-                      src={activeChar.avatarUrl}
-                      alt={activeChar.name}
+                      src={activeChar?.avatarUrl || ''}
+                      alt={activeChar?.name || 'Bot'}
                       className="h-9 w-9 rounded-xl object-cover border border-gray-800 shrink-0 shadow-lg animate-pulse"
                       referrerPolicy="no-referrer"
                     />
